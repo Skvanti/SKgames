@@ -10,61 +10,36 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS",Verdana,sans-serif;overscroll-behavior:none;touch-action:none}
 body{display:flex;flex-direction:column;align-items:center;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px))}
-.tabs{display:flex;gap:8px;width:100%;max-width:420px}
-.tabs button{flex:1;padding:12px;border:0;border-radius:14px;background:var(--panel);color:var(--mute);font:700 16px inherit;font-family:inherit}
+button{font-family:inherit;font-weight:700}
+.tabs{display:flex;gap:6px;width:100%;max-width:420px}
+.tabs button{flex:1;padding:11px 2px;border:0;border-radius:12px;background:var(--panel);color:var(--mute);font-size:12px}
 .tabs button.on{background:var(--hot);color:#1b2a41}
-.bar{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:420px;margin:14px 0 10px}
+.modes{display:flex;gap:6px;width:100%;margin-top:12px}
+.modes button{flex:1;padding:9px 2px;border:0;border-radius:10px;background:var(--panel);color:var(--mute);font-size:13px}
+.modes button.on{background:var(--gold);color:#1b2a41}
+.bar{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:420px;margin:12px 0 10px}
 .score{background:var(--panel);border-radius:12px;padding:6px 14px;text-align:center;min-width:92px}
 .score small{display:block;color:var(--mute);font-size:12px}
 .score b{font-size:22px;color:var(--gold)}
-.bar button{border:0;border-radius:12px;background:var(--gold);color:#1b2a41;font:700 15px inherit;font-family:inherit;padding:12px 16px}
+.bar button{border:0;border-radius:12px;background:var(--gold);color:#1b2a41;font-size:15px;padding:12px 16px}
 .game{display:none;width:100%;max-width:420px;flex-direction:column;align-items:center}
 .game.on{display:flex}
 .stage{position:relative;width:100%}
 canvas{width:100%;aspect-ratio:1;border-radius:16px;background:var(--grid);display:block}
-.over{position:absolute;inset:0;border-radius:16px;background:rgba(27,42,65,.86);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:26px;font-weight:700;text-align:center}
+.over{position:absolute;inset:0;border-radius:16px;background:rgba(27,42,65,.86);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:26px;font-weight:700;text-align:center;padding:12px}
 .over.on{display:flex}
 .over span{font-size:15px;color:var(--mute);font-weight:400}
 .hint{color:var(--mute);font-size:14px;margin-top:12px;text-align:center}
-#b2048{position:relative;width:100%;aspect-ratio:1;background:var(--grid);border-radius:16px;padding:8px}
-.cells{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:8px;width:100%;height:100%}
-.cell{border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;background:#33496d;font-size:clamp(20px,8vw,34px);color:#1b2a41;transition:background .12s}
+.board{width:100%;aspect-ratio:1;background:var(--grid);border-radius:16px;padding:8px}
+.cells{display:grid;gap:8px;width:100%;height:100%}
+.cell{border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;background:#33496d;font-size:inherit;color:#1b2a41;transition:background .12s}
 .cell.pop{animation:pop .16s}
 @keyframes pop{from{transform:scale(.7)}to{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.cell.pop{animation:none}}
 </style>
 </head>
 <body>
-<div class="tabs">
-  <button id="t1" class="on">Змейка</button>
-  <button id="t2">2048</button>
-</div>
-
-<section id="g1" class="game on">
-  <div class="bar">
-    <div class="score"><small>Счёт</small><b id="s1">0</b></div>
-    <button id="r1">Заново</button>
-    <div class="score"><small>Рекорд</small><b id="h1">0</b></div>
-  </div>
-  <div class="stage">
-    <canvas id="cv" width="360" height="360"></canvas>
-    <div class="over" id="o1">Игра окончена<span>Нажми, чтобы начать снова</span></div>
-  </div>
-  <div class="hint">Свайпай по экрану или жми стрелки на клавиатуре</div>
-</section>
-
-<section id="g2" class="game">
-  <div class="bar">
-    <div class="score"><small>Счёт</small><b id="s2">0</b></div>
-    <button id="r2">Заново</button>
-    <div class="score"><small>Рекорд</small><b id="h2">0</b></div>
-  </div>
-  <div class="stage">
-    <div id="b2048"><div class="cells" id="cells"></div></div>
-    <div class="over" id="o2">Ходов больше нет<span>Нажми, чтобы начать снова</span></div>
-  </div>
-  <div class="hint">Свайпай, чтобы сдвинуть плитки. Одинаковые числа сливаются.</div>
-</section>
+<div class="tabs" id="tabs"></div>
 
 <script>
 const tg = window.Telegram && window.Telegram.WebApp;
@@ -75,53 +50,97 @@ const store = {
   set(k,v){ try { localStorage.setItem(k, v); } catch(e){} }
 };
 const $ = id => document.getElementById(id);
+const bd = id => `<div class="board"><div class="cells" id="${id}"></div></div>`;
 
-/* Вкладки */
-let current = 1;
+/* ---------- Каркас: вкладки, режимы, счёт ---------- */
+const defs = [
+  {n:1, name:'Змейка', modes:['Классика','Без стен','Ускорение'], hint:'Свайпай по экрану или жми стрелки', stage:'<canvas id="cv" width="360" height="360"></canvas>'},
+  {n:2, name:'2048', modes:['4×4','5×5','3×3'], hint:'Свайпай, чтобы сдвинуть плитки. Одинаковые числа сливаются.', stage:bd('cells')},
+  {n:3, name:'Память', modes:['Лёгко 4×3','Средне 4×4','Сложно 6×6'], sl:'Ходы', hint:'Найди все пары. Чем меньше ходов, тем лучше.', stage:bd('mem')},
+  {n:4, name:'XO', modes:['Лёгкий бот','Умный бот','Вдвоём'], sl:'Победы', hint:'Собери три в ряд. Первым ходит ❌', stage:bd('ttt')},
+  {n:5, name:'Кроты', modes:['30 секунд','Блиц 15 с','3 жизни'], sl:'Поймано', hint:'Жми на 🐹!', stage:bd('moles')}
+];
+const M = {}, S = {};
+let current = 0;
+const games = {
+  1:{start:snakeStart, input:snakeDir}, 2:{start:start2048, input:move2048},
+  3:{start:startMem}, 4:{start:startTTT}, 5:{start:startM}
+};
+const key = n => n===1 && !M[1] ? 'snakeBest' : n===2 && !M[2] ? 'best2048' : 'best'+n+'_'+M[n];
+const showBest = n => $('h'+n).textContent = store.get(key(n));
+const setS = (n,v) => $('s'+n).textContent = S[n] = v;
+const rec = (n,v,low) => { const b = store.get(key(n)); if (v>0 && (low ? (!b || v<b) : v>b)) { store.set(key(n), v); showBest(n); } };
+const fin = (n,t) => { $('ot'+n).textContent = t; $('o'+n).classList.add('on'); };
+const reset = n => { $('o'+n).classList.remove('on'); setS(n,0); showBest(n); };
+const paintModes = n => $('g'+n).querySelectorAll('.modes button').forEach((b,i) => b.classList.toggle('on', i===M[n]));
+
+defs.forEach(d => {
+  const n = d.n;
+  M[n] = store.get('mode'+n) % d.modes.length;
+  const t = document.createElement('button'); t.id = 't'+n; t.textContent = d.name; t.onclick = () => show(n);
+  $('tabs').appendChild(t);
+  const s = document.createElement('section'); s.id = 'g'+n; s.className = 'game';
+  s.innerHTML = `<div class="modes">${d.modes.map(m => `<button>${m}</button>`).join('')}</div>
+    <div class="bar"><div class="score"><small>${d.sl||'Счёт'}</small><b id="s${n}">0</b></div>
+    <button id="r${n}">Заново</button>
+    <div class="score"><small>Рекорд</small><b id="h${n}">0</b></div></div>
+    <div class="stage">${d.stage}<div class="over" id="o${n}"><div id="ot${n}"></div><span>Нажми, чтобы продолжить</span></div></div>
+    <div class="hint" id="hint${n}">${d.hint}</div>`;
+  document.body.appendChild(s);
+  s.querySelectorAll('.modes button').forEach((b,i) => b.onclick = () => { M[n]=i; store.set('mode'+n, i); paintModes(n); games[n].start(); });
+  $('r'+n).onclick = () => games[n].start();
+  $('o'+n).onclick = () => games[n].start(true);
+  paintModes(n);
+});
+
 function show(n){
-  current = n;
-  $('g1').classList.toggle('on', n===1); $('g2').classList.toggle('on', n===2);
-  $('t1').classList.toggle('on', n===1); $('t2').classList.toggle('on', n===2);
+  if (current===5 && n!==5) stopM();
+  const was = current; current = n;
+  defs.forEach(d => { $('g'+d.n).classList.toggle('on', d.n===n); $('t'+d.n).classList.toggle('on', d.n===n); });
+  if (n===5 && was!==5) startM();
 }
-$('t1').onclick = () => show(1);
-$('t2').onclick = () => show(2);
 
-/* Свайпы */
+/* Свайпы и клавиатура */
 let sx=0, sy=0;
 document.addEventListener('touchstart', e => { sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
 document.addEventListener('touchend', e => {
   const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
   if (Math.max(Math.abs(dx),Math.abs(dy)) < 24) return;
-  const d = Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up');
-  input(d);
+  input(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
 }, {passive:true});
 const keys = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
 document.addEventListener('keydown', e => { if (keys[e.key]) { e.preventDefault(); input(keys[e.key]); } });
-function input(d){ current===1 ? snakeDir(d) : move2048(d); }
+function input(d){ const g = games[current]; g && g.input && g.input(d); }
 
-/* ---------- Змейка ---------- */
+/* ---------- 1. Змейка ---------- */
 const N = 18, cv = $('cv'), cx = cv.getContext('2d'), cs = cv.width / N;
-let snake, dir, nextDir, food, score1, alive1, timer1;
 const opp = {up:'down',down:'up',left:'right',right:'left'};
+let snake, dir, nd, food, t1, alive;
 function snakeStart(){
-  snake = [{x:9,y:9},{x:8,y:9},{x:7,y:9}];
-  dir = nextDir = 'right'; score1 = 0; alive1 = true;
-  $('s1').textContent = 0; $('h1').textContent = store.get('snakeBest');
-  $('o1').classList.remove('on');
-  placeFood(); clearInterval(timer1); timer1 = setInterval(tick, 130); draw1();
+  reset(1);
+  snake = [{x:9,y:9},{x:8,y:9},{x:7,y:9}]; dir = nd = 'right'; alive = true;
+  cv.style.outline = M[1]===1 ? 'none' : '3px solid #ff7a5966'; cv.style.outlineOffset = '-3px';
+  placeFood(); clearTimeout(t1); draw1(); t1 = setTimeout(loop, 130);
+}
+function loop(){
+  if (!alive) return;
+  if (current===1) tick();
+  if (alive) t1 = setTimeout(loop, M[1]===2 ? Math.max(55, 140 - S[1]*5) : 130);
 }
 function placeFood(){
   do { food = {x:Math.floor(Math.random()*N), y:Math.floor(Math.random()*N)}; }
   while (snake.some(s => s.x===food.x && s.y===food.y));
 }
-function snakeDir(d){ if (alive1 && d !== opp[dir]) nextDir = d; }
+function snakeDir(d){ if (alive && d !== opp[dir]) nd = d; }
 function tick(){
-  dir = nextDir;
+  dir = nd;
   const h = {...snake[0]};
-  if (dir==='up') h.y--; if (dir==='down') h.y++; if (dir==='left') h.x--; if (dir==='right') h.x++;
-  if (h.x<0||h.y<0||h.x>=N||h.y>=N||snake.some(s=>s.x===h.x&&s.y===h.y)) return end1();
+  if (dir==='up') h.y--; else if (dir==='down') h.y++; else if (dir==='left') h.x--; else h.x++;
+  if (M[1]===1) { h.x = (h.x+N)%N; h.y = (h.y+N)%N; }
+  else if (h.x<0||h.y<0||h.x>=N||h.y>=N) return end1();
+  if (snake.some(s => s.x===h.x && s.y===h.y)) return end1();
   snake.unshift(h);
-  if (h.x===food.x && h.y===food.y){ score1++; $('s1').textContent = score1; buzz(); placeFood(); }
+  if (h.x===food.x && h.y===food.y){ setS(1, S[1]+1); buzz(); placeFood(); }
   else snake.pop();
   draw1();
 }
@@ -131,23 +150,22 @@ function draw1(){
   cx.arc(food.x*cs+cs/2, food.y*cs+cs/2, cs*0.36, 0, 7); cx.fill();
   snake.forEach((s,i) => {
     cx.fillStyle = i===0 ? '#ff7a59' : '#f3efe6';
-    cx.beginPath(); cx.roundRect(s.x*cs+1.5, s.y*cs+1.5, cs-3, cs-3, 6); cx.fill();
+    cx.beginPath();
+    cx.roundRect ? cx.roundRect(s.x*cs+1.5, s.y*cs+1.5, cs-3, cs-3, 6) : cx.rect(s.x*cs+1.5, s.y*cs+1.5, cs-3, cs-3);
+    cx.fill();
   });
 }
-function end1(){
-  alive1 = false; clearInterval(timer1); buzz('heavy');
-  if (score1 > store.get('snakeBest')) { store.set('snakeBest', score1); $('h1').textContent = score1; }
-  $('o1').classList.add('on');
-}
-$('r1').onclick = snakeStart; $('o1').onclick = snakeStart;
+function end1(){ alive = false; buzz('heavy'); rec(1, S[1]); fin(1, 'Игра окончена'); }
 
-/* ---------- 2048 ---------- */
+/* ---------- 2. 2048 ---------- */
 const colors = {0:'#33496d',2:'#f3efe6',4:'#ffe3a3',8:'#ffc857',16:'#ffa65c',32:'#ff7a59',64:'#f0563a',128:'#9be3c1',256:'#6fd3a7',512:'#4cc2d9',1024:'#6aa7ff',2048:'#b79cff'};
-let grid, score2, over2;
+let grid, L, over2;
 function start2048(){
-  grid = Array.from({length:4}, () => Array(4).fill(0));
-  score2 = 0; over2 = false; $('o2').classList.remove('on');
-  $('s2').textContent = 0; $('h2').textContent = store.get('best2048');
+  L = [4,5,3][M[2]]; reset(2); over2 = false;
+  const c = $('cells');
+  c.style.gridTemplate = `repeat(${L},1fr)/repeat(${L},1fr)`;
+  c.style.fontSize = `min(${[8,6,10][M[2]]}vw,${[34,26,42][M[2]]}px)`;
+  grid = Array.from({length:L}, () => Array(L).fill(0));
   addTile(); addTile(); render2048();
 }
 function addTile(){
@@ -160,31 +178,29 @@ function addTile(){
 function slide(row){
   const a = row.filter(Boolean); let gained = 0;
   for (let i=0; i<a.length-1; i++) if (a[i]===a[i+1]) { a[i]*=2; gained+=a[i]; a.splice(i+1,1); }
-  while (a.length < 4) a.push(0);
+  while (a.length < L) a.push(0);
   return [a, gained];
 }
 function move2048(d){
   if (over2) return;
   const before = JSON.stringify(grid); let gain = 0;
-  const get = (i) => d==='left' ? grid[i].slice() : d==='right' ? grid[i].slice().reverse()
+  const get = i => d==='left' ? grid[i].slice() : d==='right' ? grid[i].slice().reverse()
     : d==='up' ? grid.map(r=>r[i]) : grid.map(r=>r[i]).reverse();
   const set = (i, line) => {
-    if (d==='right') line = line.reverse(); if (d==='down') line = line.reverse();
-    for (let k=0; k<4; k++) { if (d==='left'||d==='right') grid[i][k] = line[k]; else grid[k][i] = line[k]; }
+    if (d==='right' || d==='down') line = line.reverse();
+    for (let k=0; k<L; k++) { if (d==='left'||d==='right') grid[i][k] = line[k]; else grid[k][i] = line[k]; }
   };
-  for (let i=0; i<4; i++) { const [line,g] = slide(get(i)); gain += g; set(i, line); }
+  for (let i=0; i<L; i++) { const [line,g] = slide(get(i)); gain += g; set(i, line); }
   if (JSON.stringify(grid) === before) return;
-  score2 += gain; if (gain) buzz();
-  const born = addTile(); render2048(born);
-  $('s2').textContent = score2;
-  if (score2 > store.get('best2048')) { store.set('best2048', score2); $('h2').textContent = score2; }
-  if (!canMove()) { over2 = true; buzz('heavy'); $('o2').classList.add('on'); }
+  setS(2, S[2]+gain); if (gain) buzz();
+  render2048(addTile()); rec(2, S[2]);
+  if (!canMove()) { over2 = true; buzz('heavy'); fin(2, 'Ходов больше нет'); }
 }
 function canMove(){
-  for (let y=0;y<4;y++) for (let x=0;x<4;x++){
+  for (let y=0;y<L;y++) for (let x=0;x<L;x++){
     if (!grid[y][x]) return true;
-    if (x<3 && grid[y][x]===grid[y][x+1]) return true;
-    if (y<3 && grid[y][x]===grid[y+1][x]) return true;
+    if (x<L-1 && grid[y][x]===grid[y][x+1]) return true;
+    if (y<L-1 && grid[y][x]===grid[y+1][x]) return true;
   }
   return false;
 }
@@ -198,9 +214,119 @@ function render2048(born){
     c.appendChild(el);
   }));
 }
-$('r2').onclick = start2048; $('o2').onclick = start2048;
 
-snakeStart(); start2048();
+/* ---------- 3. Память ---------- */
+const EM = ['🍎','🍌','🍇','🍓','🍒','🍑','🍍','🥝','🍉','🍋','🥥','🍅','🥕','🌽','🍄','🍔','🍕','🍩'];
+let cards, opened, left, lock;
+function startMem(){
+  reset(3);
+  const [c,r] = [[4,3],[4,4],[6,6]][M[3]], n = c*r/2, e = $('mem');
+  e.style.gridTemplate = `repeat(${r},1fr)/repeat(${c},1fr)`;
+  e.style.fontSize = `min(${[11,9,6][M[3]]}vw,${[46,38,26][M[3]]}px)`;
+  cards = [...EM.slice(0,n), ...EM.slice(0,n)].sort(() => Math.random()-.5);
+  opened = []; left = n; lock = false; e.innerHTML = '';
+  cards.forEach((v,i) => {
+    const el = document.createElement('div'); el.className = 'cell'; el.style.background = '#3d5a85';
+    el.onclick = () => flip(i, el); e.appendChild(el);
+  });
+}
+function flip(i, el){
+  if (lock || el.textContent) return;
+  el.textContent = cards[i]; el.style.background = '#f3efe6'; buzz(); opened.push(el);
+  if (opened.length < 2) return;
+  setS(3, S[3]+1);
+  const [a,b] = opened; opened = [];
+  if (a.textContent === b.textContent) {
+    a.style.background = b.style.background = '#9be3c1';
+    if (!--left) { rec(3, S[3], 1); buzz('heavy'); setTimeout(() => fin(3, 'Победа! Ходов: '+S[3]), 400); }
+  } else {
+    lock = true;
+    setTimeout(() => { [a,b].forEach(x => { x.textContent = ''; x.style.background = '#3d5a85'; }); lock = false; }, 700);
+  }
+}
+
+/* ---------- 4. Крестики-нолики ---------- */
+const LN = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+let tb, turn, done4;
+const win = b => { for (const [p,q,r] of LN) if (b[p] && b[p]===b[q] && b[p]===b[r]) return b[p]; return b.every(Boolean) ? 'd' : 0; };
+function mm(b, p){
+  const w = win(b);
+  if (w) return [w==='O' ? 1 : w==='X' ? -1 : 0];
+  let bs = p==='O' ? -2 : 2, bm;
+  for (let i=0;i<9;i++) if (!b[i]) {
+    b[i] = p; const s = mm(b, p==='O' ? 'X' : 'O')[0]; b[i] = '';
+    if (p==='O' ? s>bs : s<bs) { bs = s; bm = i; }
+  }
+  return [bs, bm];
+}
+function rt(){
+  [...$('ttt').children].forEach((e,i) => {
+    e.textContent = tb[i];
+    e.style.color = tb[i]==='X' ? '#ff7a59' : '#1b2a41';
+    e.style.background = tb[i]==='O' ? '#ffc857' : tb[i]==='X' ? '#f3efe6' : '#33496d';
+  });
+}
+function startTTT(keep){
+  keep===true ? $('o4').classList.remove('on') : reset(4);
+  tb = Array(9).fill(''); turn = 'X'; done4 = false;
+  const e = $('ttt'); e.style.gridTemplate = 'repeat(3,1fr)/repeat(3,1fr)'; e.style.fontSize = 'min(18vw,72px)'; e.innerHTML = '';
+  for (let i=0;i<9;i++) {
+    const c = document.createElement('div'); c.className = 'cell';
+    c.onclick = () => { if (!done4 && !tb[i] && !(M[4]<2 && turn==='O')) mv(i); };
+    e.appendChild(c);
+  }
+  rt();
+}
+function mv(i){
+  tb[i] = turn; buzz(); rt();
+  const w = win(tb);
+  if (w) {
+    done4 = true;
+    if (w==='X') { setS(4, S[4]+1); rec(4, S[4]); }
+    const two = M[4]===2;
+    const txt = w==='d' ? 'Ничья' : w==='X' ? (two ? 'Победили ❌' : 'Ты победил!') : (two ? 'Победили ⭕' : 'Бот победил');
+    setTimeout(() => { if (done4) fin(4, txt); }, 500);
+    return;
+  }
+  turn = turn==='X' ? 'O' : 'X';
+  if (M[4]<2 && turn==='O') setTimeout(bot, 400);
+}
+function bot(){
+  if (done4 || turn!=='O') return;
+  const f = []; tb.forEach((v,k) => v || f.push(k));
+  mv(M[4]===1 ? mm(tb,'O')[1] : f[Math.random()*f.length|0]);
+}
+
+/* ---------- 5. Кроты ---------- */
+let mt, mi, tl, lives, mole, act;
+function stopM(){ act = false; clearInterval(mt); clearTimeout(mi); }
+function st(){ $('hint5').textContent = 'Жми на 🐹! ' + (M[5]<2 ? '⏱ '+tl : '❤️'.repeat(Math.max(lives,0))); }
+function paintM(){ [...$('moles').children].forEach((e,i) => { e.textContent = i===mole ? '🐹' : ''; e.style.background = i===mole ? '#b8835a' : '#33496d'; }); }
+function startM(){
+  stopM(); reset(5);
+  tl = [30,15,0][M[5]]; lives = 3; mole = -1; act = true;
+  const e = $('moles'); e.style.gridTemplate = 'repeat(3,1fr)/repeat(3,1fr)'; e.style.fontSize = 'min(12vw,50px)'; e.innerHTML = '';
+  for (let i=0;i<9;i++) { const c = document.createElement('div'); c.className = 'cell'; c.onpointerdown = () => whack(i); e.appendChild(c); }
+  if (M[5]<2) mt = setInterval(() => { tl--; st(); if (tl<=0) endM(); }, 1000);
+  st(); mi = setTimeout(pop, 400);
+}
+function pop(){
+  if (!act) return;
+  if (mole>=0 && M[5]===2) { lives--; st(); buzz('heavy'); if (lives<=0) return endM(); }
+  let n; do { n = Math.random()*9|0; } while (n===mole);
+  mole = n; paintM();
+  mi = setTimeout(pop, Math.max(400, [900,550,800][M[5]] - S[5]*10));
+}
+function whack(i){
+  if (!act) return;
+  if (i===mole) { mole = -1; setS(5, S[5]+1); buzz(); paintM(); clearTimeout(mi); mi = setTimeout(pop, 120); }
+  else if (M[5]===2) { lives--; st(); buzz('heavy'); if (lives<=0) endM(); }
+}
+function endM(){ stopM(); mole = -1; paintM(); rec(5, S[5]); buzz('heavy'); fin(5, 'Конец! Поймано: '+S[5]); }
+
+/* Старт */
+[1,2,3,4].forEach(n => games[n].start());
+show(1);
 </script>
 </body>
 </html>
